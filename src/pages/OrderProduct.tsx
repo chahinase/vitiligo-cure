@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRight, ShoppingBag, CheckCircle2, Package, Truck } from "lucide-react";
+import { ArrowRight, ShoppingBag, CheckCircle2, Package, Truck, Star } from "lucide-react";
 import { getCurrentUser, getPatientData, savePatientData, getTodayString } from "@/lib/storage";
+import productImage from "@/assets/product-cream.jpg";
 import { useToast } from "@/hooks/use-toast";
 
 export default function OrderProduct() {
@@ -97,22 +98,26 @@ export default function OrderProduct() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-accent/50 rounded-lg p-4 flex gap-4 items-center">
-              <div className="w-20 h-20 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                <ShoppingBag className="w-10 h-10 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-bold text-foreground">بومادة علاج البهاق</h3>
-                <p className="text-sm text-muted-foreground mt-1">كريم طبيعي متخصص لعلاج البهاق – نتائج ملحوظة خلال أسابيع</p>
+            <div className="bg-accent/50 rounded-xl p-4 flex gap-4 items-start">
+              <img src={productImage} alt="بومادة علاج البهاق" className="w-24 h-24 rounded-xl object-cover shrink-0 border border-border shadow-sm" />
+              <div className="space-y-1">
+                <h3 className="font-bold text-foreground text-base">بومادة علاج البهاق</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  كريم طبيعي 100% مصنوع من أعشاب طبية متخصصة لعلاج البهاق. يعمل على تحفيز إنتاج الميلانين واستعادة لون البشرة الطبيعي. نتائج ملحوظة خلال 15 يوماً من الاستخدام المنتظم.
+                </p>
+                <div className="flex items-center gap-1 pt-1">
+                  {[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />)}
+                  <span className="text-xs text-muted-foreground mr-1">+200 مستخدم</span>
+                </div>
               </div>
             </div>
             <div className="flex items-center justify-between bg-muted rounded-lg p-3">
               <span className="text-muted-foreground">السعر:</span>
-              <span className="text-xl font-bold text-primary">يُحدد عند التواصل</span>
+              <span className="text-xl font-bold text-primary">1000 د.ج</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Truck className="w-4 h-4" />
-              <span>التوصيل متاح لجميع المناطق</span>
+              <span>التوصيل متاح لجميع الولايات – الدفع عند الاستلام</span>
             </div>
           </CardContent>
         </Card>
