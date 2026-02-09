@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PatientData, getTodayString } from "@/lib/storage";
-import { ShoppingBag, CheckCircle2, ArrowLeft } from "lucide-react";
+import { ShoppingBag, CheckCircle2, ArrowLeft, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import LockedOverlay from "./LockedOverlay";
 
@@ -52,10 +52,23 @@ export default function CardOrder({ data, updateData, unlocked }: Props) {
             </Button>
           </div>
         ) : (
-          <div className="text-center p-4 bg-accent rounded-lg">
-            <CheckCircle2 className="w-10 h-10 text-success mx-auto mb-2" />
-            <p className="font-semibold text-accent-foreground">✅ تم طلب المنتج بنجاح – جاري التوصيل</p>
-            <p className="text-sm text-muted-foreground mt-1">تاريخ الطلب: {data.orderDate}</p>
+          <div className="space-y-3">
+            <div className="text-center p-4 bg-accent rounded-lg">
+              <CheckCircle2 className="w-10 h-10 text-success mx-auto mb-2" />
+              <p className="font-semibold text-accent-foreground">✅ تم طلب المنتج بنجاح – جاري التوصيل</p>
+              <p className="text-sm text-muted-foreground mt-1">تاريخ الطلب: {data.orderDate}</p>
+            </div>
+            {data.orderDetails && (
+              <Button
+                onClick={() => navigate("/order")}
+                variant="outline"
+                size="sm"
+                className="w-full gap-2"
+              >
+                <Pencil className="w-4 h-4" />
+                تعديل معلومات الطلب
+              </Button>
+            )}
           </div>
         )}
       </CardContent>
