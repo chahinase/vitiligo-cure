@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PatientData } from "@/lib/storage";
-import { FileText, CheckCircle2, Upload } from "lucide-react";
+import { FileText, CheckCircle2, Upload, Eye } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import LockedOverlay from "./LockedOverlay";
 import { useToast } from "@/hooks/use-toast";
 
@@ -26,6 +27,7 @@ export default function CardProfile({ data, updateData, unlocked }: Props) {
   const [duration, setDuration] = useState(data.profile?.duration || "");
   const [image, setImage] = useState<string | undefined>(data.profile?.beforeImage);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,11 +63,20 @@ export default function CardProfile({ data, updateData, unlocked }: Props) {
             <CheckCircle2 className="w-5 h-5 text-success mr-auto" />
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <div className="text-center p-4 bg-accent rounded-lg">
             <CheckCircle2 className="w-10 h-10 text-success mx-auto mb-2" />
             <p className="font-semibold text-accent-foreground">✅ تم إنشاء ملفك العلاجي</p>
           </div>
+          <Button
+            onClick={() => navigate("/profile")}
+            variant="outline"
+            size="sm"
+            className="w-full gap-2"
+          >
+            <Eye className="w-4 h-4" />
+            عرض وتعديل الملف العلاجي
+          </Button>
         </CardContent>
       </Card>
     );

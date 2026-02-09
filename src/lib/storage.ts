@@ -8,10 +8,19 @@ export interface User {
   password: string;
 }
 
+export interface OrderDetails {
+  fullName: string;
+  phone: string;
+  address: string;
+  city: string;
+  quantity: string;
+}
+
 export interface PatientData {
   userId: string;
   orderPlaced?: boolean;
   orderDate?: string;
+  orderDetails?: OrderDetails;
   profile?: {
     age: string;
     vitiligoLocation: string;
