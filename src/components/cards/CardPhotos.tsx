@@ -1,9 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { PatientData, getTodayString } from "@/lib/storage";
-import { Camera, Upload, Image } from "lucide-react";
+import { Camera, Upload, Image, Lock } from "lucide-react";
 import LockedOverlay from "./LockedOverlay";
 import { useToast } from "@/hooks/use-toast";
+import { useRef } from "react";
+
+const PHOTO_INTERVAL = 5; // every 5 days
+const TREATMENT_DURATION = 15;
 
 interface Props {
   data: PatientData;
@@ -13,17 +16,51 @@ interface Props {
 
 export default function CardPhotos({ data, updateData, unlocked }: Props) {
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingPeriodRef = useRef<number>(0);
 
-  const getCurrentWeek = (): number => {
-    if (!data.treatmentStartDate) return 1;
-    const start = new Date(data.treatmentStartDate);
-    const now = new Date();
-    const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    return Math.floor(diffDays / 7) + 1;
+  // Calculate photo periods: day 5, day 10, day 15
+  const getPhotoPeriods = () => {
+    const periods: { period: number; label: string; dayRequired: number }[] = [];
+    const totalPeriods = Math.floor(TREATMENT_DURATION / PHOTO_INTERVAL);
+    for (let i = 1; i <= totalPeriods; i++) {
+      periods.push({
+        period: i,
+        label: `اليوم ${i * PHOTO_INTERVAL}`,
+        dayRequired: i * PHOTO_INTERVAL,
+      });
+    }
+    return periods;
   };
 
-  const currentWeek = getCurrentWeek();
-  const hasPhotoForCurrentWeek = data.weeklyPhotos.some((p) => p.week === currentWeek);
+  const periods = getPhotoPeriods();
+
+  const getDaysSinceStart = (): number => {
+    if (!data.treatmentStartDate) return 0;
+    const start = new Date(data.treatmentStartDate);
+    const now = new Date();
+    return Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  };
+
+  const currentDay = getDaysSinceStart();
+
+  const handleSlotClick = (period: number, dayRequired: number) => {
+    // Check if photo already exists for this period
+    if (data.weeklyPhotos.some((p) => p.week === period)) return;
+
+    if (currentDay < dayRequired) {
+      const remaining = dayRequired - currentDay;
+      toast({
+        title: "⏳ لم يحن الوقت بعد",
+        description: `يجب أن تمر ${remaining} ${remaining === 1 ? "يوم" : "أيام"} أخرى لرفع هذه الصورة`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    pendingPeriodRef.current = period;
+    fileInputRef.current?.click();
+  };
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -34,11 +71,14 @@ export default function CardPhotos({ data, updateData, unlocked }: Props) {
     }
     const reader = new FileReader();
     reader.onload = () => {
-      const newPhoto = { week: currentWeek, image: reader.result as string, date: getTodayString() };
+      const period = pendingPeriodRef.current;
+      const newPhoto = { week: period, image: reader.result as string, date: getTodayString() };
       updateData({ weeklyPhotos: [...data.weeklyPhotos, newPhoto] });
-      toast({ title: "تم!", description: `تم رفع صورة الأسبوع ${currentWeek}` });
+      toast({ title: "تم!", description: `تم رفع صورة اليوم ${period * PHOTO_INTERVAL}` });
     };
     reader.readAsDataURL(file);
+    // Reset input
+    e.target.value = "";
   };
 
   return (
@@ -47,7 +87,8 @@ export default function CardPhotos({ data, updateData, unlocked }: Props) {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Camera className="w-5 h-5 text-primary" />
-          <span>متابعة الصور الأسبوعية</span>
+          <span>متابعة الصور</span>
+          <span className="text-xs text-muted-foreground font-normal mr-auto">كل {PHOTO_INTERVAL} أيام</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -59,19 +100,44 @@ export default function CardPhotos({ data, updateData, unlocked }: Props) {
           </div>
         )}
 
-        {/* Weekly photos grid */}
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-          {Array.from({ length: Math.max(currentWeek, 4) }, (_, i) => {
-            const week = i + 1;
-            const photo = data.weeklyPhotos.find((p) => p.week === week);
+        {/* Photo periods grid */}
+        <div className="grid grid-cols-3 gap-3">
+          {periods.map(({ period, label, dayRequired }) => {
+            const photo = data.weeklyPhotos.find((p) => p.week === period);
+            const isAvailable = currentDay >= dayRequired;
+
             return (
-              <div key={week} className="text-center">
-                <p className="text-xs text-muted-foreground mb-1">أسبوع {week}</p>
+              <div
+                key={period}
+                className="text-center cursor-pointer group"
+                onClick={() => !photo && handleSlotClick(period, dayRequired)}
+              >
+                <p className="text-xs text-muted-foreground mb-1 font-medium">{label}</p>
                 {photo ? (
-                  <img src={photo.image} alt={`أسبوع ${week}`} className="w-full aspect-square object-cover rounded-lg border" />
+                  <img
+                    src={photo.image}
+                    alt={label}
+                    className="w-full aspect-square object-cover rounded-lg border-2 border-success"
+                  />
                 ) : (
-                  <div className="w-full aspect-square bg-muted rounded-lg flex items-center justify-center border border-dashed">
-                    <Image className="w-6 h-6 text-muted-foreground/40" />
+                  <div
+                    className={`w-full aspect-square rounded-lg flex flex-col items-center justify-center border-2 border-dashed transition-colors ${
+                      isAvailable
+                        ? "border-primary bg-primary/5 group-hover:bg-primary/10"
+                        : "border-muted bg-muted/30"
+                    }`}
+                  >
+                    {isAvailable ? (
+                      <>
+                        <Upload className="w-6 h-6 text-primary mb-1" />
+                        <span className="text-[10px] text-primary font-medium">ارفع صورة</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-5 h-5 text-muted-foreground/40 mb-1" />
+                        <span className="text-[10px] text-muted-foreground/60">غير متاح</span>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -79,18 +145,13 @@ export default function CardPhotos({ data, updateData, unlocked }: Props) {
           })}
         </div>
 
-        {/* Upload button */}
-        {!hasPhotoForCurrentWeek && (
-          <label className="cursor-pointer">
-            <Button asChild className="w-full gap-2">
-              <div>
-                <Upload className="w-4 h-4" />
-                ارفع صورة الأسبوع {currentWeek}
-              </div>
-            </Button>
-            <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-          </label>
-        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleUpload}
+        />
       </CardContent>
     </Card>
   );
