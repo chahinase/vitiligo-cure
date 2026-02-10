@@ -1,11 +1,11 @@
-// localStorage-based storage for the trial version
+import { db } from "./firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 export interface User {
   id: string;
   fullName: string;
   phone: string;
   email: string;
-  password: string;
 }
 
 export interface OrderDetails {
@@ -27,64 +27,22 @@ export interface PatientData {
     duration: string;
     beforeImage?: string;
   };
-  complianceDays: string[]; // array of date strings "YYYY-MM-DD"
+  complianceDays: string[];
   reminderConfirmed?: boolean;
   weeklyPhotos: { week: number; image: string; date: string }[];
   treatmentStartDate?: string;
 }
 
-const USERS_KEY = "ilaj_users";
-const CURRENT_USER_KEY = "ilaj_current_user";
-const PATIENT_DATA_KEY = "ilaj_patient_data";
-
-export function getUsers(): User[] {
-  const data = localStorage.getItem(USERS_KEY);
-  return data ? JSON.parse(data) : [];
+export async function getPatientData(userId: string): Promise<PatientData> {
+  const ref = doc(db, "patients", userId);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return snap.data() as PatientData;
+  return { userId, complianceDays: [], weeklyPhotos: [] };
 }
 
-export function registerUser(user: Omit<User, "id">): User {
-  const users = getUsers();
-  if (users.find((u) => u.email === user.email)) {
-    throw new Error("البريد الإلكتروني مسجل مسبقاً");
-  }
-  const newUser: User = { ...user, id: crypto.randomUUID() };
-  users.push(newUser);
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  return newUser;
-}
-
-export function loginUser(email: string, password: string): User {
-  const users = getUsers();
-  const user = users.find((u) => u.email === email && u.password === password);
-  if (!user) throw new Error("البريد الإلكتروني أو كلمة المرور غير صحيحة");
-  return user;
-}
-
-export function setCurrentUser(user: User | null) {
-  if (user) {
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
-  } else {
-    localStorage.removeItem(CURRENT_USER_KEY);
-  }
-}
-
-export function getCurrentUser(): User | null {
-  const data = localStorage.getItem(CURRENT_USER_KEY);
-  return data ? JSON.parse(data) : null;
-}
-
-export function getPatientData(userId: string): PatientData {
-  const data = localStorage.getItem(`${PATIENT_DATA_KEY}_${userId}`);
-  if (data) return JSON.parse(data);
-  return {
-    userId,
-    complianceDays: [],
-    weeklyPhotos: [],
-  };
-}
-
-export function savePatientData(data: PatientData) {
-  localStorage.setItem(`${PATIENT_DATA_KEY}_${data.userId}`, JSON.stringify(data));
+export async function savePatientData(data: PatientData): Promise<void> {
+  const ref = doc(db, "patients", data.userId);
+  await setDoc(ref, data, { merge: true });
 }
 
 export function getTodayString(): string {
