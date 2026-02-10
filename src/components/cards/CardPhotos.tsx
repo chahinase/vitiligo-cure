@@ -1,11 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PatientData, getTodayString } from "@/lib/storage";
-import { Camera, Upload, Image, Lock } from "lucide-react";
+import { Camera, Upload, Lock } from "lucide-react";
 import LockedOverlay from "./LockedOverlay";
 import { useToast } from "@/hooks/use-toast";
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
-const PHOTO_INTERVAL = 5; // every 5 days
+const PHOTO_INTERVAL = 5;
 const TREATMENT_DURATION = 15;
 
 interface Props {
@@ -18,8 +19,8 @@ export default function CardPhotos({ data, updateData, unlocked }: Props) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPeriodRef = useRef<number>(0);
+  const [uploading, setUploading] = useState(false);
 
-  // Calculate photo periods: day 5, day 10, day 15
   const getPhotoPeriods = () => {
     const periods: { period: number; label: string; dayRequired: number }[] = [];
     const totalPeriods = Math.floor(TREATMENT_DURATION / PHOTO_INTERVAL);
@@ -45,8 +46,8 @@ export default function CardPhotos({ data, updateData, unlocked }: Props) {
   const currentDay = getDaysSinceStart();
 
   const handleSlotClick = (period: number, dayRequired: number) => {
-    // Check if photo already exists for this period
     if (data.weeklyPhotos.some((p) => p.week === period)) return;
+    if (uploading) return;
 
     if (currentDay < dayRequired) {
       const remaining = dayRequired - currentDay;
@@ -62,23 +63,27 @@ export default function CardPhotos({ data, updateData, unlocked }: Props) {
     fileInputRef.current?.click();
   };
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
       toast({ title: "خطأ", description: "حجم الصورة كبير جداً (الحد 5 ميغا)", variant: "destructive" });
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
+
+    try {
+      setUploading(true);
+      const url = await uploadToCloudinary(file);
       const period = pendingPeriodRef.current;
-      const newPhoto = { week: period, image: reader.result as string, date: getTodayString() };
+      const newPhoto = { week: period, image: url, date: getTodayString() };
       updateData({ weeklyPhotos: [...data.weeklyPhotos, newPhoto] });
       toast({ title: "تم!", description: `تم رفع صورة اليوم ${period * PHOTO_INTERVAL}` });
-    };
-    reader.readAsDataURL(file);
-    // Reset input
-    e.target.value = "";
+    } catch {
+      toast({ title: "خطأ", description: "فشل رفع الصورة، حاول مرة أخرى", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
   };
 
   return (
@@ -92,7 +97,6 @@ export default function CardPhotos({ data, updateData, unlocked }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Before photo */}
         {data.profile?.beforeImage && (
           <div>
             <p className="text-sm font-medium text-muted-foreground mb-2">صورة قبل العلاج</p>
@@ -100,7 +104,6 @@ export default function CardPhotos({ data, updateData, unlocked }: Props) {
           </div>
         )}
 
-        {/* Photo periods grid */}
         <div className="grid grid-cols-3 gap-3">
           {periods.map(({ period, label, dayRequired }) => {
             const photo = data.weeklyPhotos.find((p) => p.week === period);
@@ -130,7 +133,9 @@ export default function CardPhotos({ data, updateData, unlocked }: Props) {
                     {isAvailable ? (
                       <>
                         <Upload className="w-6 h-6 text-primary mb-1" />
-                        <span className="text-[10px] text-primary font-medium">ارفع صورة</span>
+                        <span className="text-[10px] text-primary font-medium">
+                          {uploading ? "جارٍ..." : "ارفع صورة"}
+                        </span>
                       </>
                     ) : (
                       <>

@@ -3,52 +3,57 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { User, registerUser, loginUser, setCurrentUser } from "@/lib/storage";
 import { Heart, UserPlus, LogIn } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
-interface AuthScreenProps {
-  onLogin: (user: User) => void;
-}
-
-export default function AuthScreen({ onLogin }: AuthScreenProps) {
+export default function AuthScreen() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
+  const { login, register } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
       if (mode === "register") {
         if (!fullName || !phone || !email || !password) {
           toast({ title: "خطأ", description: "يرجى ملء جميع الحقول", variant: "destructive" });
+          setSubmitting(false);
           return;
         }
-        const user = registerUser({ fullName, phone, email, password });
-        setCurrentUser(user);
-        onLogin(user);
+        await register(fullName, phone, email, password);
         toast({ title: "مرحباً!", description: "تم إنشاء حسابك بنجاح" });
       } else {
         if (!email || !password) {
           toast({ title: "خطأ", description: "يرجى إدخال البريد وكلمة المرور", variant: "destructive" });
+          setSubmitting(false);
           return;
         }
-        const user = loginUser(email, password);
-        setCurrentUser(user);
-        onLogin(user);
+        await login(email, password);
       }
     } catch (err: any) {
-      toast({ title: "خطأ", description: err.message, variant: "destructive" });
+      const msg = err.code === "auth/email-already-in-use"
+        ? "البريد الإلكتروني مسجل مسبقاً"
+        : err.code === "auth/invalid-credential"
+        ? "البريد الإلكتروني أو كلمة المرور غير صحيحة"
+        : err.code === "auth/weak-password"
+        ? "كلمة المرور ضعيفة (6 أحرف على الأقل)"
+        : err.message;
+      toast({ title: "خطأ", description: msg, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-6">
-        {/* Logo / Title */}
         <div className="text-center space-y-3">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mx-auto">
             <Heart className="w-8 h-8 text-primary" />
@@ -85,9 +90,9 @@ export default function AuthScreen({ onLogin }: AuthScreenProps) {
                 <Label htmlFor="password">كلمة المرور</Label>
                 <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" dir="ltr" className="text-left" />
               </div>
-              <Button type="submit" className="w-full gap-2" size="lg">
+              <Button type="submit" className="w-full gap-2" size="lg" disabled={submitting}>
                 {mode === "login" ? <LogIn className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-                {mode === "login" ? "دخول" : "إنشاء حساب"}
+                {submitting ? "جارٍ..." : mode === "login" ? "دخول" : "إنشاء حساب"}
               </Button>
             </form>
             <div className="mt-4 text-center">

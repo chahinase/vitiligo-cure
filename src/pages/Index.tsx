@@ -1,24 +1,23 @@
-import { useState, useEffect } from "react";
-import { getCurrentUser, type User } from "@/lib/storage";
+import { useAuth } from "@/contexts/AuthContext";
 import AuthScreen from "@/components/AuthScreen";
 import Dashboard from "@/components/Dashboard";
 
 const Index = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    setUser(getCurrentUser());
-    setLoading(false);
-  }, []);
-
-  if (loading) return null;
-
-  if (!user) {
-    return <AuthScreen onLogin={setUser} />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
   }
 
-  return <Dashboard user={user} onLogout={() => setUser(null)} />;
+  if (!user) {
+    return <AuthScreen />;
+  }
+
+  return <Dashboard />;
 };
 
 export default Index;

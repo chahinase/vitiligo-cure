@@ -6,26 +6,43 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowRight, ShoppingBag, CheckCircle2, Package, Truck, Star } from "lucide-react";
-import { getCurrentUser, getPatientData, savePatientData, getTodayString } from "@/lib/storage";
+import { getPatientData, savePatientData, getTodayString } from "@/lib/storage";
+import { useAuth } from "@/contexts/AuthContext";
 import productImage from "@/assets/product-cream.jpg";
 import { useToast } from "@/hooks/use-toast";
 
 export default function OrderProduct() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [orderSubmitted, setOrderSubmitted] = useState(false);
-
-  const user = getCurrentUser();
-  const existingData = user ? getPatientData(user.id) : null;
-  const existingOrder = existingData?.orderDetails;
+  const [loading, setLoading] = useState(true);
+  const [existingOrder, setExistingOrder] = useState<any>(null);
 
   const [form, setForm] = useState({
-    fullName: existingOrder?.fullName || "",
-    phone: existingOrder?.phone || "",
-    address: existingOrder?.address || "",
-    city: existingOrder?.city || "",
-    quantity: existingOrder?.quantity || "1",
+    fullName: "",
+    phone: "",
+    address: "",
+    city: "",
+    quantity: "1",
   });
+
+  useEffect(() => {
+    if (!user) return;
+    getPatientData(user.id).then((data) => {
+      if (data.orderDetails) {
+        setExistingOrder(data.orderDetails);
+        setForm({
+          fullName: data.orderDetails.fullName || "",
+          phone: data.orderDetails.phone || "",
+          address: data.orderDetails.address || "",
+          city: data.orderDetails.city || "",
+          quantity: data.orderDetails.quantity || "1",
+        });
+      }
+      setLoading(false);
+    });
+  }, [user]);
 
   const isEditing = !!existingOrder;
 
@@ -33,7 +50,7 @@ export default function OrderProduct() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.fullName || !form.phone || !form.address || !form.city) {
       toast({ title: "يرجى ملء جميع الحقول", variant: "destructive" });
@@ -41,17 +58,25 @@ export default function OrderProduct() {
     }
 
     if (user) {
-      const data = getPatientData(user.id);
+      const data = await getPatientData(user.id);
       data.orderPlaced = true;
       data.orderDate = data.orderDate || getTodayString();
       data.treatmentStartDate = data.treatmentStartDate || getTodayString();
       data.orderDetails = { ...form };
-      savePatientData(data);
+      await savePatientData(data);
     }
 
     setOrderSubmitted(true);
     toast({ title: isEditing ? "✅ تم تعديل طلبك بنجاح!" : "✅ تم تسجيل طلبك بنجاح!" });
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   if (orderSubmitted) {
     return (

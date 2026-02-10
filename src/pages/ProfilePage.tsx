@@ -6,7 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowRight, FileText, Save, Pencil, Upload } from "lucide-react";
-import { getCurrentUser, getPatientData, savePatientData } from "@/lib/storage";
+import { getPatientData, savePatientData } from "@/lib/storage";
+import { useAuth } from "@/contexts/AuthContext";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 import { useToast } from "@/hooks/use-toast";
 
 const VITILIGO_LOCATIONS = [
@@ -17,44 +19,73 @@ const VITILIGO_LOCATIONS = [
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const user = getCurrentUser();
-  const patientData = user ? getPatientData(user.id) : null;
-  const profile = patientData?.profile;
+  const { user } = useAuth();
 
-  const [editing, setEditing] = useState(!profile);
-  const [age, setAge] = useState(profile?.age || "");
-  const [location, setLocation] = useState(profile?.vitiligoLocation || "");
-  const [duration, setDuration] = useState(profile?.duration || "");
-  const [image, setImage] = useState<string | undefined>(profile?.beforeImage);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [age, setAge] = useState("");
+  const [location, setLocation] = useState("");
+  const [duration, setDuration] = useState("");
+  const [image, setImage] = useState<string | undefined>();
+  const [profile, setProfile] = useState<any>(null);
+  const [uploading, setUploading] = useState(false);
 
-  if (!user || !patientData) {
-    navigate("/");
-    return null;
-  }
+  useEffect(() => {
+    if (!user) { navigate("/"); return; }
+    getPatientData(user.id).then((data) => {
+      const p = data.profile;
+      setProfile(p);
+      if (p) {
+        setAge(p.age);
+        setLocation(p.vitiligoLocation);
+        setDuration(p.duration);
+        setImage(p.beforeImage);
+      } else {
+        setEditing(true);
+      }
+      setLoading(false);
+    });
+  }, [user, navigate]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
       toast({ title: "خطأ", description: "حجم الصورة كبير جداً (الحد 5 ميغا)", variant: "destructive" });
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => setImage(reader.result as string);
-    reader.readAsDataURL(file);
+    try {
+      setUploading(true);
+      const url = await uploadToCloudinary(file);
+      setImage(url);
+    } catch {
+      toast({ title: "خطأ", description: "فشل رفع الصورة", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!age || !location || !duration) {
       toast({ title: "خطأ", description: "يرجى ملء جميع الحقول", variant: "destructive" });
       return;
     }
-    const data = getPatientData(user.id);
+    if (!user) return;
+    const data = await getPatientData(user.id);
     data.profile = { age, vitiligoLocation: location, duration, beforeImage: image };
-    savePatientData(data);
+    await savePatientData(data);
+    setProfile(data.profile);
     setEditing(false);
     toast({ title: "تم!", description: "تم حفظ التعديلات بنجاح" });
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-10">
@@ -108,15 +139,17 @@ export default function ProfilePage() {
                   <label className="block cursor-pointer">
                     <div className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-border rounded-lg hover:border-primary/50 transition-colors">
                       <Upload className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">{image ? "تغيير الصورة" : "اختر صورة"}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {uploading ? "جارٍ الرفع..." : image ? "تغيير الصورة" : "اختر صورة"}
+                      </span>
                     </div>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
                   </label>
                   {image && (
                     <img src={image} alt="صورة قبل العلاج" className="w-24 h-24 object-cover rounded-lg border" />
                   )}
                 </div>
-                <Button onClick={handleSave} className="w-full gap-2">
+                <Button onClick={handleSave} className="w-full gap-2" disabled={uploading}>
                   <Save className="w-4 h-4" />
                   حفظ التعديلات
                 </Button>

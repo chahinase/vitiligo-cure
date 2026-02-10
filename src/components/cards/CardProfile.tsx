@@ -9,6 +9,7 @@ import { FileText, CheckCircle2, Upload, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import LockedOverlay from "./LockedOverlay";
 import { useToast } from "@/hooks/use-toast";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
 const VITILIGO_LOCATIONS = [
   "الوجه", "اليدين", "القدمين", "الذراعين", "الساقين",
@@ -26,19 +27,26 @@ export default function CardProfile({ data, updateData, unlocked }: Props) {
   const [location, setLocation] = useState(data.profile?.vitiligoLocation || "");
   const [duration, setDuration] = useState(data.profile?.duration || "");
   const [image, setImage] = useState<string | undefined>(data.profile?.beforeImage);
+  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
       toast({ title: "خطأ", description: "حجم الصورة كبير جداً (الحد 5 ميغا)", variant: "destructive" });
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => setImage(reader.result as string);
-    reader.readAsDataURL(file);
+    try {
+      setUploading(true);
+      const url = await uploadToCloudinary(file);
+      setImage(url);
+    } catch {
+      toast({ title: "خطأ", description: "فشل رفع الصورة، حاول مرة أخرى", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSave = () => {
@@ -117,16 +125,18 @@ export default function CardProfile({ data, updateData, unlocked }: Props) {
             <label className="flex-1 cursor-pointer">
               <div className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-border rounded-lg hover:border-primary/50 transition-colors">
                 <Upload className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">{image ? "تم اختيار صورة" : "اختر صورة"}</span>
+                <span className="text-sm text-muted-foreground">
+                  {uploading ? "جارٍ الرفع..." : image ? "تم اختيار صورة" : "اختر صورة"}
+                </span>
               </div>
-              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
             </label>
           </div>
           {image && (
             <img src={image} alt="صورة قبل العلاج" className="w-24 h-24 object-cover rounded-lg border" />
           )}
         </div>
-        <Button onClick={handleSave} className="w-full gap-2">
+        <Button onClick={handleSave} className="w-full gap-2" disabled={uploading}>
           <FileText className="w-4 h-4" />
           حفظ الملف
         </Button>
