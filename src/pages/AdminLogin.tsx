@@ -24,13 +24,15 @@ export default function AdminLogin() {
       return;
     }
 
-    if (!isAdminEmail(email)) {
-      toast({ title: "غير مصرح", description: "هذا البريد ليس لديه صلاحيات المسؤول", variant: "destructive" });
-      return;
-    }
-
     setSubmitting(true);
     try {
+      const isAdmin = await isAdminEmail(email);
+      if (!isAdmin) {
+        toast({ title: "غير مصرح", description: "هذا البريد ليس لديه صلاحيات المسؤول", variant: "destructive" });
+        setSubmitting(false);
+        return;
+      }
+
       await signInWithEmailAndPassword(auth, email, password);
       navigate("/admin");
     } catch (err: any) {

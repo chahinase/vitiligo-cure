@@ -89,8 +89,14 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (fbUser) => {
-      if (!fbUser || !isAdminEmail(fbUser.email || "")) {
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      if (!fbUser) {
+        navigate("/admin/login");
+        return;
+      }
+      const admin = await isAdminEmail(fbUser.email || "");
+      if (!admin) {
+        await signOut(auth);
         navigate("/admin/login");
         return;
       }

@@ -1,12 +1,17 @@
 import { db } from "./firebase";
-import { collection, getDocs, doc, updateDoc, getDoc, setDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
 import type { PatientData } from "./storage";
 
-// List of admin emails - add your admin email here
-const ADMIN_EMAILS = ["admin@vitiligo-cure.com"];
-
-export function isAdminEmail(email: string): boolean {
-  return ADMIN_EMAILS.includes(email.toLowerCase());
+/**
+ * Check if a given email belongs to an admin by querying the "admins" collection in Firestore.
+ * Each document in "admins" has the email as the document ID.
+ * To add an admin: create a document in Firestore collection "admins" with the document ID = email address.
+ */
+export async function isAdminEmail(email: string): Promise<boolean> {
+  if (!email) return false;
+  const ref = doc(db, "admins", email.toLowerCase());
+  const snap = await getDoc(ref);
+  return snap.exists();
 }
 
 export interface AdminUser {
